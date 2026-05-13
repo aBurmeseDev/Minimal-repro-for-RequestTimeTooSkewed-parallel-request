@@ -1,0 +1,11 @@
+{
+	"name": "issue-8005-repro",
+	"private": true,
+	"description": "Minimal repro for RequestTimeTooSkewed parallel request bug",
+	"scripts": {
+		"reproduce": "node index.js"
+	},
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1006.0"
+	}
+}
