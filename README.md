@@ -2,7 +2,8 @@ RequestTimeTooSkewed not auto-corrected for parallel requests
 
 ## Repro
 
-This is a pure Node.js repro — no Electron/Tauri needed. The bug is in the SDK's `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
+This is a pure Node.js repro — no Electron/Tauri needed. The bug might be in the `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
+
 Issue: https://github.com/aws/aws-sdk-js-v3/issues/8005
 
 ### Setup
@@ -29,7 +30,7 @@ All 5 parallel requests succeed (SDK corrects skew and retries all of them).
 
 The script creates an S3 client with `systemClockOffset: 7200000` (2 hours ahead), then fires 5 parallel `PutObject` requests. All 5 will get `RequestTimeTooSkewed` errors. The SDK's error handler should correct the offset and set `clockSkewCorrected = true` so the retry logic kicks in for all of them. The bug is that only the first request to reach the error handler gets retried.
 
-## Root cause
+## Potential Root cause
 
 In `AwsSdkSigV4Signer.errorHandler()`, the check was:
 
