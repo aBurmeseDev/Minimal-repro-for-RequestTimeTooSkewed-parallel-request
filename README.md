@@ -1,8 +1,10 @@
-# Issue #8005 - RequestTimeTooSkewed not auto-corrected for parallel requests
+RequestTimeTooSkewed not auto-corrected for parallel requests
 
 ## Repro
 
-This is a pure Node.js repro — no Electron/Tauri needed. The bug is in the SDK's `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
+This is a pure Node.js repro — no Electron/Tauri needed. The bug might be in the `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
+
+Issue: https://github.com/aws/aws-sdk-js-v3/issues/8005
 
 ### Setup
 
@@ -34,7 +36,7 @@ The script creates an STS client with `systemClockOffset: 7200000` (2 hours ahea
 
 Uses `GetCallerIdentity` since it requires no special permissions or resources.
 
-## Root cause
+## Potential Root cause
 
 In `AwsSdkSigV4Signer.errorHandler()`, the check was:
 
