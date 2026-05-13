@@ -1,8 +1,6 @@
-RequestTimeTooSkewed not auto-corrected for parallel requests
+# RequestTimeTooSkewed not auto-corrected for parallel requests
 
-## Repro
-
-This is a pure Node.js repro — no Electron/Tauri needed. The bug might be in the `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
+This is a Node.js repro without Electron/Tauri. The bug might be in the `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
 
 Issue: https://github.com/aws/aws-sdk-js-v3/issues/8005
 
