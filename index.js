@@ -1,59 +1,64 @@
 /**
+ * Minimal repro for #8005: RequestTimeTooSkewed not auto-corrected for parallel requests.
  *
- * Setup:
- *   1. Set your system clock 1+ hour ahead/behind, OR
- *   2. Use the approach below: inject a large systemClockOffset to simulate skew.
+ * Uses ListBuckets (no bucket or write permissions needed).
  *
  * Usage:
  *   npm install
- *   export AWS_REGION=us-east-1
- *   export BUCKET_NAME=your-test-bucket
  *   node index.js
  */
 
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { STSClient, GetCallerIdentityCommand } = require("@aws-sdk/client-sts");
 
 const REGION = process.env.AWS_REGION || "us-east-1";
-const BUCKET = process.env.BUCKET_NAME;
 const PARALLEL_COUNT = 5;
 // 2 hours in the future — guaranteed to trigger RequestTimeTooSkewed
 const SKEW_MS = 2 * 60 * 60 * 1000;
 
-if (!BUCKET) {
-	console.error(
-		"Set BUCKET_NAME env var to an S3 bucket you have PutObject access to.",
-	);
-	process.exit(1);
-}
+const USE_WORKAROUND = process.argv.includes("--workaround");
 
 async function main() {
-	const client = new S3Client({
+	const client = new STSClient({
 		region: REGION,
-		// Inject a wrong clock offset to simulate a skewed system clock.
-		// The SDK should detect the skew from the first error, correct the offset,
-		// and retry ALL parallel requests — not just the first one.
 		systemClockOffset: SKEW_MS,
 	});
 
+	if (USE_WORKAROUND) {
+		client.middlewareStack.add(
+			(next, context) => {
+				return async (args) => {
+					try {
+						return await next(args);
+					} catch (error) {
+						if (
+							error.name !== "RequestTimeTooSkewed" &&
+							error.name !== "SignatureDoesNotMatch"
+						) {
+							throw error;
+						}
+						return await next(args);
+					}
+				};
+			},
+			{
+				name: "clock_skew_handler",
+				priority: "low",
+			},
+		);
+		console.log("*** Workaround middleware applied ***\n");
+	}
+
 	console.log(
-		`Sending ${PARALLEL_COUNT} parallel PutObject requests with ${SKEW_MS}ms clock skew...`,
+		`Sending ${PARALLEL_COUNT} parallel GetCallerIdentity requests with ${SKEW_MS}ms clock skew...`,
 	);
-	console.log(`Bucket: ${BUCKET}, Region: ${REGION}\n`);
+	console.log(`Region: ${REGION}\n`);
 
 	const promises = Array.from({ length: PARALLEL_COUNT }, (_, i) => {
-		const key = `clock-skew-repro/test-${i}-${Date.now()}.txt`;
 		return client
-			.send(
-				new PutObjectCommand({
-					Bucket: BUCKET,
-					Key: key,
-					Body: `test object ${i}`,
-				}),
-			)
-			.then(() => ({ index: i, key, status: "success" }))
+			.send(new GetCallerIdentityCommand({}))
+			.then(() => ({ index: i, status: "success" }))
 			.catch((err) => ({
 				index: i,
-				key,
 				status: "failed",
 				error: err.name,
 				message: err.message,
@@ -69,7 +74,7 @@ async function main() {
 	for (const r of results) {
 		if (r.status === "success") {
 			successes++;
-			console.log(`  [${r.index}] SUCCESS — ${r.key}`);
+			console.log(`  [${r.index}] SUCCESS`);
 		} else {
 			failures++;
 			console.log(`  [${r.index}] FAILED  — ${r.error}: ${r.message}`);
@@ -77,7 +82,6 @@ async function main() {
 	}
 
 	console.log(`\nSummary: ${successes} succeeded, ${failures} failed`);
-	console.log(`Final systemClockOffset: ${client.config.systemClockOffset}`);
 
 	if (failures > 0) {
 		console.log(

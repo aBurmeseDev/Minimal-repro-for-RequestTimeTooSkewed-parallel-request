@@ -6,6 +6,6 @@
 		"reproduce": "node index.js"
 	},
 	"dependencies": {
-		"@aws-sdk/client-s3": "^3.1006.0"
+		"@aws-sdk/client-sts": "^3.1006.0"
 	}
 }
