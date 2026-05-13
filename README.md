@@ -1,15 +1,14 @@
-# Issue #8005 - RequestTimeTooSkewed not auto-corrected for parallel requests
+RequestTimeTooSkewed not auto-corrected for parallel requests
 
 ## Repro
 
 This is a pure Node.js repro — no Electron/Tauri needed. The bug is in the SDK's `errorHandler` logic in `AwsSdkSigV4Signer`, not runtime-specific.
+Issue: https://github.com/aws/aws-sdk-js-v3/issues/8005
 
 ### Setup
 
 ```bash
 npm install
-export AWS_REGION=us-east-1
-export BUCKET_NAME=your-test-bucket
 ```
 
 ### Run
